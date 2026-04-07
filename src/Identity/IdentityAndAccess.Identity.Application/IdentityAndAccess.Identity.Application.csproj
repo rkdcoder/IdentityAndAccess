@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Cqrsly" Version="1.0.5" />
+    <PackageReference Include="FluentValidation" Version="12.1.1" />
+    <PackageReference Include="Rkd.ApiException" Version="1.0.1" />
+    <PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IdentityAndAccess.Identity.Domain\IdentityAndAccess.Identity.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,19 @@
+﻿using IdentityAndAccess.Identity.Application.Ports.Out;
+using IdentityAndAccess.Identity.Infrastructure.Adapters.Out.ExternalClients.ActiveDirectory;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Platform.Identity.Abstractions.Extensions;
+
+namespace IdentityAndAccess.Identity.Infrastructure.Extensions
+{
+    public static class DependencyInjectionExtensions
+    {
+        public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration cfg)
+        {
+            services.AddDirectoryServicesOptions(cfg);
+            services.AddScoped<IActiveDirectoryAuthGateway, ActiveDirectoryAuthGateway>();
+            services.AddScoped<IActiveDirectoryUsersGateway, ActiveDirectoryUsersGateway>();
+            return services;
+        }
+    }
+}
