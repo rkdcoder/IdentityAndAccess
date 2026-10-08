@@ -1,11 +1,11 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Cqrsly;
 using IdentityAndAccess.Identity.Api.Adapters.In.Http.V1.Features.Auth.Contracts.Requests;
 using IdentityAndAccess.Identity.Api.Adapters.In.Http.V1.Features.Auth.Contracts.Responses;
 using IdentityAndAccess.Identity.Api.Adapters.In.Http.V1.Features.Auth.Mapping;
 using IdentityAndAccess.Identity.Application.Features.Auth.Commands;
 using Microsoft.AspNetCore.Mvc;
-using System.Diagnostics;
+using Rkd.Scalar;
 
 namespace IdentityAndAccess.Identity.Api.Adapters.In.Http.V1.Features.Auth.Controllers
 {
@@ -17,22 +17,28 @@ namespace IdentityAndAccess.Identity.Api.Adapters.In.Http.V1.Features.Auth.Contr
         private readonly ICqrsly _cqrsly;
         public AuthController(ICqrsly cqrsly) => _cqrsly = cqrsly;
 
+        /// <summary>
+        /// Valida as credenciais de um usuário no Active Directory.
+        /// </summary>
+        /// <remarks>
+        /// Em caso de sucesso retorna os dados do usuário. O corpo (que contém a senha) nunca é gravado no log HTTP.
+        /// </remarks>
+        /// <response code="200">Credenciais válidas.</response>
+        /// <response code="401">Credenciais inválidas, senha expirada ou usuário inexistente.</response>
+        /// <response code="503">Active Directory indisponível.</response>
         [HttpPost("validate")]
+        [SensitiveHttpLog]
+        [ProducesResponseType<ValidateCredentialsResponse>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ValidateCredentialsResponse>(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> Validate([FromBody] ValidateCredentialsRequest req, CancellationToken ct)
         {
-
             var cmd = new ValidateCredentialsCommand(req.Ad, req.Username, req.Password);
 
             var result = await _cqrsly.Send(cmd, ct);
 
-            if (!result.Success)
-            {
+            var response = result.ToResponse();
 
-                return Unauthorized(result.ToResponse());
-            }
-
-            ValidateCredentialsResponse resp = result.ToResponse();
-            return Ok(resp);
+            return result.Success ? Ok(response) : Unauthorized(response);
         }
     }
 }

@@ -1,14 +1,24 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Os comentários /// aparecem automaticamente no Scalar (Rkd.Scalar). -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="HttpGossip" Version="1.0.1" />
-    <PackageReference Include="Rkd.Scalar" Version="1.0.9" />
+    <!-- A autenticação usa System.DirectoryServices, que só existe no Windows. -->
+    <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
+      <_Parameter1>windows</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Rkd.Scalar" Version="2.8.1" />
+    <PackageReference Include="Rkd.Scalar.HttpLogging.SqlServer" Version="2.5.0" />
   </ItemGroup>
 
   <ItemGroup>
