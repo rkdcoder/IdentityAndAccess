@@ -56,6 +56,110 @@ namespace IdentityAndAccess.Identity.Infrastructure.Adapters.Out.ExternalClients
             throw new DirectoryUnavailableException(domain, lastError);
         }
 
+        // Atributos lidos de cada usuário. Trazê-los na própria busca evita uma ida ao servidor por usuário
+        // (GetDirectoryEntry) e o tráfego dos demais atributos.
+        private static readonly string[] UserProperties =
+        {
+            "accountNameHistory",
+            "altRecipient",
+            "applicationName",
+            "assetNumber",
+            "assistant",
+            "attributeDisplayNames",
+            "badPasswordTime",
+            "badPwdCount",
+            "buildingName",
+            "businessCategory",
+            "c",
+            "canonicalName",
+            "carLicense",
+            "classDisplayName",
+            "cn",
+            "co",
+            "company",
+            "countryCode",
+            "createTimeStamp",
+            "creationTime",
+            "department",
+            "departmentNumber",
+            "description",
+            "directReports",
+            "displayName",
+            "distinguishedName",
+            "division",
+            "driverName",
+            "employeeID",
+            "employeeNumber",
+            "employeeType",
+            "extensionName",
+            "facsimileTelephoneNumber",
+            "friendlyNames",
+            "givenName",
+            "globalAddressList",
+            "homePhone",
+            "homePostalAddress",
+            "info",
+            "initials",
+            "ipPhone",
+            "keywords",
+            "l",
+            "lastBackupRestorationTime",
+            "lastLogoff",
+            "lastLogon",
+            "lastLogonTimestamp",
+            "lastSetTime",
+            "location",
+            "lockoutDuration",
+            "lockoutTime",
+            "logonCount",
+            "mail",
+            "mailAddress",
+            "mailNickname",
+            "managedBy",
+            "manager",
+            "maxPwdAge",
+            "memberOf",
+            "middleName",
+            "mobile",
+            "name",
+            "nCName",
+            "o",
+            "operatingSystem",
+            "operatingSystemServicePack",
+            "operatingSystemVersion",
+            "optionDescription",
+            "otherFacsimileTelephoneNumber",
+            "otherHomePhone",
+            "otherIpPhone",
+            "otherMailbox",
+            "otherMobile",
+            "otherTelephone",
+            "owner",
+            "personalTitle",
+            "physicalDeliveryOfficeName",
+            "postalAddress",
+            "postalCode",
+            "postOfficeBox",
+            "primaryGroupID",
+            "protocolSettings",
+            "proxyAddresses",
+            "pwdLastSet",
+            "sAMAccountName",
+            "servicePrincipalName",
+            "sn",
+            "st",
+            "street",
+            "streetAddress",
+            "targetAddress",
+            "telephoneNumber",
+            "title",
+            "uPNSuffixes",
+            "userAccountControl",
+            "userPrincipalName",
+            "whenChanged",
+            "whenCreated"
+        };
+
         private IReadOnlyList<AdUserDetails> SearchUsers(string dc, string? samAccountName, TimeSpan maxPwdAge, CancellationToken ct)
         {
             var users = new List<AdUserDetails>();
@@ -73,6 +177,7 @@ namespace IdentityAndAccess.Identity.Infrastructure.Adapters.Out.ExternalClients
             searcher.Filter = filter;
             searcher.PageSize = 1000;
             searcher.ReferralChasing = ReferralChasingOption.None;
+            searcher.PropertiesToLoad.AddRange(UserProperties);
 
             if (_opts.TimeoutSeconds > 0)
                 searcher.ClientTimeout = TimeSpan.FromSeconds(_opts.TimeoutSeconds);
@@ -83,10 +188,8 @@ namespace IdentityAndAccess.Identity.Infrastructure.Adapters.Out.ExternalClients
             {
                 ct.ThrowIfCancellationRequested();
 
-                using var entry = result.GetDirectoryEntry();
-
-                var uac = DirectoryEntryReader.GetInt(entry, "userAccountControl");
-                var pwdLastSet = DirectoryEntryReader.GetFileTime(entry, "pwdLastSet");
+                var uac = SearchResultReader.GetInt(result, "userAccountControl");
+                var pwdLastSet = SearchResultReader.GetFileTime(result, "pwdLastSet");
 
                 bool neverExpires = (uac & UacPasswordNeverExpires) != 0;
                 bool mustChange = pwdLastSet == null || pwdLastSet.Value == DateTime.MinValue;
@@ -102,155 +205,155 @@ namespace IdentityAndAccess.Identity.Infrastructure.Adapters.Out.ExternalClients
 
                 var userDetail = new AdUserDetails
                 {
-                    SAMAccountName = DirectoryEntryReader.GetString(entry, "sAMAccountName"),
-                    GivenName = DirectoryEntryReader.GetString(entry, "givenName"),
-                    Initials = DirectoryEntryReader.GetString(entry, "initials"),
-                    Sn = DirectoryEntryReader.GetString(entry, "sn"),
-                    DisplayName = DirectoryEntryReader.GetString(entry, "displayName"),
-                    Cn = DirectoryEntryReader.GetString(entry, "cn"),
-                    Description = DirectoryEntryReader.GetString(entry, "description"),
+                    SAMAccountName = SearchResultReader.GetString(result, "sAMAccountName"),
+                    GivenName = SearchResultReader.GetString(result, "givenName"),
+                    Initials = SearchResultReader.GetString(result, "initials"),
+                    Sn = SearchResultReader.GetString(result, "sn"),
+                    DisplayName = SearchResultReader.GetString(result, "displayName"),
+                    Cn = SearchResultReader.GetString(result, "cn"),
+                    Description = SearchResultReader.GetString(result, "description"),
 
-                    WhenCreated = DirectoryEntryReader.GetDate(entry, "whenCreated"),
-                    WhenChanged = DirectoryEntryReader.GetDate(entry, "whenChanged"),
+                    WhenCreated = SearchResultReader.GetDate(result, "whenCreated"),
+                    WhenChanged = SearchResultReader.GetDate(result, "whenChanged"),
 
-                    PhysicalDeliveryOfficeName = DirectoryEntryReader.GetString(entry, "physicalDeliveryOfficeName"),
-                    TelephoneNumber = DirectoryEntryReader.GetString(entry, "telephoneNumber"),
-                    OtherTelephone = DirectoryEntryReader.GetString(entry, "otherTelephone"),
+                    PhysicalDeliveryOfficeName = SearchResultReader.GetString(result, "physicalDeliveryOfficeName"),
+                    TelephoneNumber = SearchResultReader.GetString(result, "telephoneNumber"),
+                    OtherTelephone = SearchResultReader.GetString(result, "otherTelephone"),
 
-                    Mail = DirectoryEntryReader.GetString(entry, "mail"),
-                    MailNickname = DirectoryEntryReader.GetString(entry, "mailNickname"),
-                    MailAddress = DirectoryEntryReader.GetString(entry, "mailAddress"),
+                    Mail = SearchResultReader.GetString(result, "mail"),
+                    MailNickname = SearchResultReader.GetString(result, "mailNickname"),
+                    MailAddress = SearchResultReader.GetString(result, "mailAddress"),
 
-                    Ou = GetOrganizationalUnit(entry),
+                    Ou = GetOrganizationalUnit(result),
 
-                    StreetAddress = DirectoryEntryReader.GetString(entry, "streetAddress"),
-                    PostOfficeBox = DirectoryEntryReader.GetString(entry, "postOfficeBox"),
-                    Street = DirectoryEntryReader.GetString(entry, "street"),
+                    StreetAddress = SearchResultReader.GetString(result, "streetAddress"),
+                    PostOfficeBox = SearchResultReader.GetString(result, "postOfficeBox"),
+                    Street = SearchResultReader.GetString(result, "street"),
 
-                    L = DirectoryEntryReader.GetString(entry, "l"),
-                    St = DirectoryEntryReader.GetString(entry, "st"),
-                    PostalCode = DirectoryEntryReader.GetString(entry, "postalCode"),
-                    PostalAddress = DirectoryEntryReader.GetString(entry, "postalAddress"),
+                    L = SearchResultReader.GetString(result, "l"),
+                    St = SearchResultReader.GetString(result, "st"),
+                    PostalCode = SearchResultReader.GetString(result, "postalCode"),
+                    PostalAddress = SearchResultReader.GetString(result, "postalAddress"),
 
-                    Co = DirectoryEntryReader.GetString(entry, "co"),
-                    C = DirectoryEntryReader.GetString(entry, "c"),
-                    CountryCode = DirectoryEntryReader.GetInt(entry, "countryCode"),
+                    Co = SearchResultReader.GetString(result, "co"),
+                    C = SearchResultReader.GetString(result, "c"),
+                    CountryCode = SearchResultReader.GetInt(result, "countryCode"),
 
-                    UserPrincipalName = DirectoryEntryReader.GetString(entry, "userPrincipalName"),
+                    UserPrincipalName = SearchResultReader.GetString(result, "userPrincipalName"),
 
                     PwdLastSet = pwdLastSet,
-                    MaxPwdAge = DirectoryEntryReader.GetFileTime(entry, "maxPwdAge"),
+                    MaxPwdAge = SearchResultReader.GetFileTime(result, "maxPwdAge"),
 
-                    HomePhone = DirectoryEntryReader.GetString(entry, "homePhone"),
-                    OtherHomePhone = DirectoryEntryReader.GetString(entry, "otherHomePhone"),
+                    HomePhone = SearchResultReader.GetString(result, "homePhone"),
+                    OtherHomePhone = SearchResultReader.GetString(result, "otherHomePhone"),
 
-                    Mobile = DirectoryEntryReader.GetString(entry, "mobile"),
-                    OtherMobile = DirectoryEntryReader.GetString(entry, "otherMobile"),
+                    Mobile = SearchResultReader.GetString(result, "mobile"),
+                    OtherMobile = SearchResultReader.GetString(result, "otherMobile"),
 
-                    FacsimileTelephoneNumber = DirectoryEntryReader.GetString(entry, "facsimileTelephoneNumber"),
-                    OtherFacsimileTelephoneNumber = DirectoryEntryReader.GetString(entry, "otherFacsimileTelephoneNumber"),
+                    FacsimileTelephoneNumber = SearchResultReader.GetString(result, "facsimileTelephoneNumber"),
+                    OtherFacsimileTelephoneNumber = SearchResultReader.GetString(result, "otherFacsimileTelephoneNumber"),
 
-                    IpPhone = DirectoryEntryReader.GetString(entry, "ipPhone"),
-                    OtherIpPhone = DirectoryEntryReader.GetString(entry, "otherIpPhone"),
+                    IpPhone = SearchResultReader.GetString(result, "ipPhone"),
+                    OtherIpPhone = SearchResultReader.GetString(result, "otherIpPhone"),
 
-                    Info = DirectoryEntryReader.GetString(entry, "info"),
-                    Title = DirectoryEntryReader.GetString(entry, "title"),
-                    Department = DirectoryEntryReader.GetString(entry, "department"),
-                    Company = DirectoryEntryReader.GetString(entry, "company"),
+                    Info = SearchResultReader.GetString(result, "info"),
+                    Title = SearchResultReader.GetString(result, "title"),
+                    Department = SearchResultReader.GetString(result, "department"),
+                    Company = SearchResultReader.GetString(result, "company"),
 
-                    Manager = DirectoryEntryReader.GetString(entry, "manager"),
-                    ManagedBy = DirectoryEntryReader.GetString(entry, "managedBy"),
+                    Manager = SearchResultReader.GetString(result, "manager"),
+                    ManagedBy = SearchResultReader.GetString(result, "managedBy"),
 
-                    DirectReports = DirectoryEntryReader.GetMulti(entry, "directReports").ToList(),
+                    DirectReports = SearchResultReader.GetMulti(result, "directReports").ToList(),
 
-                    DistinguishedName = DirectoryEntryReader.GetString(entry, "distinguishedName"),
-                    CanonicalName = DirectoryEntryReader.GetString(entry, "canonicalName"),
+                    DistinguishedName = SearchResultReader.GetString(result, "distinguishedName"),
+                    CanonicalName = SearchResultReader.GetString(result, "canonicalName"),
 
-                    MemberOf = DirectoryEntryReader.GetMulti(entry, "memberOf").ToList(),
+                    MemberOf = SearchResultReader.GetMulti(result, "memberOf").ToList(),
 
-                    AltRecipient = DirectoryEntryReader.GetString(entry, "altRecipient"),
+                    AltRecipient = SearchResultReader.GetString(result, "altRecipient"),
 
-                    ProxyAddresses = DirectoryEntryReader.GetMulti(entry, "proxyAddresses").ToList(),
-                    TargetAddress = DirectoryEntryReader.GetString(entry, "targetAddress"),
-                    ProtocolSettings = DirectoryEntryReader.GetString(entry, "protocolSettings"),
+                    ProxyAddresses = SearchResultReader.GetMulti(result, "proxyAddresses").ToList(),
+                    TargetAddress = SearchResultReader.GetString(result, "targetAddress"),
+                    ProtocolSettings = SearchResultReader.GetString(result, "protocolSettings"),
 
-                    AccountNameHistory = DirectoryEntryReader.GetString(entry, "accountNameHistory"),
+                    AccountNameHistory = SearchResultReader.GetString(result, "accountNameHistory"),
 
-                    HomePostalAddress = DirectoryEntryReader.GetString(entry, "homePostalAddress"),
+                    HomePostalAddress = SearchResultReader.GetString(result, "homePostalAddress"),
 
-                    ApplicationName = DirectoryEntryReader.GetString(entry, "applicationName"),
-                    AssetNumber = DirectoryEntryReader.GetString(entry, "assetNumber"),
-                    Assistant = DirectoryEntryReader.GetString(entry, "assistant"),
-                    AttributeDisplayNames = DirectoryEntryReader.GetString(entry, "attributeDisplayNames"),
+                    ApplicationName = SearchResultReader.GetString(result, "applicationName"),
+                    AssetNumber = SearchResultReader.GetString(result, "assetNumber"),
+                    Assistant = SearchResultReader.GetString(result, "assistant"),
+                    AttributeDisplayNames = SearchResultReader.GetString(result, "attributeDisplayNames"),
 
-                    BadPasswordTime = DirectoryEntryReader.GetFileTime(entry, "badPasswordTime"),
-                    BadPwdCount = DirectoryEntryReader.GetString(entry, "badPwdCount"),
+                    BadPasswordTime = SearchResultReader.GetFileTime(result, "badPasswordTime"),
+                    BadPwdCount = SearchResultReader.GetString(result, "badPwdCount"),
 
-                    BuildingName = DirectoryEntryReader.GetString(entry, "buildingName"),
-                    BusinessCategory = DirectoryEntryReader.GetString(entry, "businessCategory"),
-                    CarLicense = DirectoryEntryReader.GetString(entry, "carLicense"),
+                    BuildingName = SearchResultReader.GetString(result, "buildingName"),
+                    BusinessCategory = SearchResultReader.GetString(result, "businessCategory"),
+                    CarLicense = SearchResultReader.GetString(result, "carLicense"),
 
-                    ClassDisplayName = DirectoryEntryReader.GetString(entry, "classDisplayName"),
+                    ClassDisplayName = SearchResultReader.GetString(result, "classDisplayName"),
 
-                    CreateTimeStamp = DirectoryEntryReader.GetString(entry, "createTimeStamp"),
-                    CreationTime = DirectoryEntryReader.GetDate(entry, "creationTime"),
+                    CreateTimeStamp = SearchResultReader.GetString(result, "createTimeStamp"),
+                    CreationTime = SearchResultReader.GetDate(result, "creationTime"),
 
-                    DepartmentNumber = DirectoryEntryReader.GetString(entry, "departmentNumber"),
-                    Division = DirectoryEntryReader.GetString(entry, "division"),
+                    DepartmentNumber = SearchResultReader.GetString(result, "departmentNumber"),
+                    Division = SearchResultReader.GetString(result, "division"),
 
-                    DriverName = DirectoryEntryReader.GetString(entry, "driverName"),
+                    DriverName = SearchResultReader.GetString(result, "driverName"),
 
-                    EmployeeID = DirectoryEntryReader.GetString(entry, "employeeID"),
-                    EmployeeNumber = DirectoryEntryReader.GetString(entry, "employeeNumber"),
-                    EmployeeType = DirectoryEntryReader.GetString(entry, "employeeType"),
+                    EmployeeID = SearchResultReader.GetString(result, "employeeID"),
+                    EmployeeNumber = SearchResultReader.GetString(result, "employeeNumber"),
+                    EmployeeType = SearchResultReader.GetString(result, "employeeType"),
 
-                    ExtensionName = DirectoryEntryReader.GetString(entry, "extensionName"),
+                    ExtensionName = SearchResultReader.GetString(result, "extensionName"),
 
-                    FriendlyNames = DirectoryEntryReader.GetString(entry, "friendlyNames"),
-                    GlobalAddressList = DirectoryEntryReader.GetString(entry, "globalAddressList"),
+                    FriendlyNames = SearchResultReader.GetString(result, "friendlyNames"),
+                    GlobalAddressList = SearchResultReader.GetString(result, "globalAddressList"),
 
-                    Keywords = DirectoryEntryReader.GetString(entry, "keywords"),
+                    Keywords = SearchResultReader.GetString(result, "keywords"),
 
-                    LastBackupRestorationTime = DirectoryEntryReader.GetDate(entry, "lastBackupRestorationTime"),
-                    LastLogoff = DirectoryEntryReader.GetFileTime(entry, "lastLogoff"),
-                    LastLogon = DirectoryEntryReader.GetFileTime(entry, "lastLogon"),
-                    LastLogonTimestamp = DirectoryEntryReader.GetFileTime(entry, "lastLogonTimestamp"),
+                    LastBackupRestorationTime = SearchResultReader.GetDate(result, "lastBackupRestorationTime"),
+                    LastLogoff = SearchResultReader.GetFileTime(result, "lastLogoff"),
+                    LastLogon = SearchResultReader.GetFileTime(result, "lastLogon"),
+                    LastLogonTimestamp = SearchResultReader.GetFileTime(result, "lastLogonTimestamp"),
 
-                    LastSetTime = DirectoryEntryReader.GetDate(entry, "lastSetTime"),
+                    LastSetTime = SearchResultReader.GetDate(result, "lastSetTime"),
 
-                    Location = DirectoryEntryReader.GetString(entry, "location"),
+                    Location = SearchResultReader.GetString(result, "location"),
 
-                    LockoutDuration = DirectoryEntryReader.GetFileTime(entry, "lockoutDuration"),
-                    LockoutTime = DirectoryEntryReader.GetFileTime(entry, "lockoutTime"),
+                    LockoutDuration = SearchResultReader.GetFileTime(result, "lockoutDuration"),
+                    LockoutTime = SearchResultReader.GetFileTime(result, "lockoutTime"),
 
-                    LogonCount = DirectoryEntryReader.GetInt(entry, "logonCount"),
+                    LogonCount = SearchResultReader.GetInt(result, "logonCount"),
 
-                    NCName = DirectoryEntryReader.GetString(entry, "nCName"),
+                    NCName = SearchResultReader.GetString(result, "nCName"),
 
-                    OperatingSystem = DirectoryEntryReader.GetString(entry, "operatingSystem"),
-                    OperatingSystemServicePack = DirectoryEntryReader.GetString(entry, "operatingSystemServicePack"),
-                    OperatingSystemVersion = DirectoryEntryReader.GetString(entry, "operatingSystemVersion"),
+                    OperatingSystem = SearchResultReader.GetString(result, "operatingSystem"),
+                    OperatingSystemServicePack = SearchResultReader.GetString(result, "operatingSystemServicePack"),
+                    OperatingSystemVersion = SearchResultReader.GetString(result, "operatingSystemVersion"),
 
-                    OptionDescription = DirectoryEntryReader.GetString(entry, "optionDescription"),
+                    OptionDescription = SearchResultReader.GetString(result, "optionDescription"),
 
-                    O = DirectoryEntryReader.GetString(entry, "o"),
+                    O = SearchResultReader.GetString(result, "o"),
 
-                    OtherMailbox = DirectoryEntryReader.GetString(entry, "otherMailbox"),
+                    OtherMailbox = SearchResultReader.GetString(result, "otherMailbox"),
 
-                    MiddleName = DirectoryEntryReader.GetString(entry, "middleName"),
+                    MiddleName = SearchResultReader.GetString(result, "middleName"),
 
-                    Owner = DirectoryEntryReader.GetString(entry, "owner"),
+                    Owner = SearchResultReader.GetString(result, "owner"),
 
-                    PersonalTitle = DirectoryEntryReader.GetString(entry, "personalTitle"),
+                    PersonalTitle = SearchResultReader.GetString(result, "personalTitle"),
 
-                    Name = DirectoryEntryReader.GetString(entry, "name"),
+                    Name = SearchResultReader.GetString(result, "name"),
 
-                    ServicePrincipalName = DirectoryEntryReader.GetString(entry, "servicePrincipalName"),
+                    ServicePrincipalName = SearchResultReader.GetString(result, "servicePrincipalName"),
 
-                    UPNSuffixes = DirectoryEntryReader.GetString(entry, "uPNSuffixes"),
+                    UPNSuffixes = SearchResultReader.GetString(result, "uPNSuffixes"),
 
-                    PrimaryGroupID = DirectoryEntryReader.GetInt(entry, "primaryGroupID").ToString(),
-                    PrimaryGroupDescription = PrimaryGroupIDDetail(DirectoryEntryReader.GetInt(entry, "primaryGroupID")),
+                    PrimaryGroupID = SearchResultReader.GetInt(result, "primaryGroupID").ToString(),
+                    PrimaryGroupDescription = PrimaryGroupIDDetail(SearchResultReader.GetInt(result, "primaryGroupID")),
 
                     PasswordExpirationDate = expirationDate,
                     IsPasswordExpired = isExpired,
@@ -279,9 +382,9 @@ namespace IdentityAndAccess.Identity.Infrastructure.Adapters.Out.ExternalClients
                     .Replace(")", "\\29")
                     .Replace("\0", "\\00");
 
-        private static string? GetOrganizationalUnit(DirectoryEntry entry)
+        private static string? GetOrganizationalUnit(SearchResult result)
         {
-            var dn = DirectoryEntryReader.GetString(entry, "distinguishedName");
+            var dn = SearchResultReader.GetString(result, "distinguishedName");
             if (string.IsNullOrEmpty(dn)) return null;
 
             var match = Regex.Match(dn, @"OU=(.*?),");

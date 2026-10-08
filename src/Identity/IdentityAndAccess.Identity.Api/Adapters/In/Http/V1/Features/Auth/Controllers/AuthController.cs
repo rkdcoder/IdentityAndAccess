@@ -4,7 +4,9 @@ using IdentityAndAccess.Identity.Api.Adapters.In.Http.V1.Features.Auth.Contracts
 using IdentityAndAccess.Identity.Api.Adapters.In.Http.V1.Features.Auth.Contracts.Responses;
 using IdentityAndAccess.Identity.Api.Adapters.In.Http.V1.Features.Auth.Mapping;
 using IdentityAndAccess.Identity.Application.Features.Auth.Commands;
+using IdentityAndAccess.Identity.Api.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Rkd.Scalar;
 
 namespace IdentityAndAccess.Identity.Api.Adapters.In.Http.V1.Features.Auth.Controllers
@@ -25,9 +27,11 @@ namespace IdentityAndAccess.Identity.Api.Adapters.In.Http.V1.Features.Auth.Contr
         /// </remarks>
         /// <response code="200">Credenciais válidas.</response>
         /// <response code="401">Credenciais inválidas, senha expirada ou usuário inexistente.</response>
+        /// <response code="429">Limite de tentativas por IP excedido (veja o header Retry-After).</response>
         /// <response code="503">Active Directory indisponível.</response>
         [HttpPost("validate")]
         [SensitiveHttpLog]
+        [EnableRateLimiting(AuthRateLimitOptions.PolicyName)]
         [ProducesResponseType<ValidateCredentialsResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType<ValidateCredentialsResponse>(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> Validate([FromBody] ValidateCredentialsRequest req, CancellationToken ct)

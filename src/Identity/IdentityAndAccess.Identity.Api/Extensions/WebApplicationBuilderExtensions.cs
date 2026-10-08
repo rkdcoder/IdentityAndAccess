@@ -1,9 +1,11 @@
 using FluentValidation;
+using IdentityAndAccess.Identity.Api.RateLimiting;
 using IdentityAndAccess.Identity.Application.Exceptions;
 using IdentityAndAccess.Identity.Application.Extensions;
 using IdentityAndAccess.Identity.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Rkd.Scalar;
+using System.Threading.RateLimiting;
 
 namespace IdentityAndAccess.Identity.Api.Extensions
 {
@@ -29,10 +31,47 @@ namespace IdentityAndAccess.Identity.Api.Extensions
                 .WithHttpLogging()
                 .WriteHttpLogsToSqlServer();
 
+            AddRateLimiting(services, builder.Configuration);
+
             services.AddApplication();
             services.AddInfrastructure(builder.Configuration);
 
             return builder;
+        }
+
+        /// <summary>
+        /// Limita por IP as tentativas de validação de credenciais (evita força bruta e bloqueio de contas no AD).
+        /// Atrás de proxy/balanceador, o IP real depende de ForwardedHeaders (ASPNETCORE_FORWARDEDHEADERS_ENABLED=true).
+        /// </summary>
+        private static void AddRateLimiting(IServiceCollection services, IConfiguration configuration)
+        {
+            var limits = configuration.GetSection(AuthRateLimitOptions.SectionName).Get<AuthRateLimitOptions>()
+                         ?? new AuthRateLimitOptions();
+
+            services.AddRateLimiter(options =>
+            {
+                // Resposta sem corpo: o Rkd.Scalar a converte em problem details (429, TOO_MANY_REQUESTS).
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+                options.OnRejected = (context, _) =>
+                {
+                    if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+                        context.HttpContext.Response.Headers.RetryAfter =
+                            ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
+
+                    return ValueTask.CompletedTask;
+                };
+
+                options.AddPolicy(AuthRateLimitOptions.PolicyName, httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = Math.Max(1, limits.PermitLimit),
+                            Window = TimeSpan.FromSeconds(Math.Max(1, limits.WindowSeconds)),
+                            QueueLimit = 0
+                        }));
+            });
         }
 
         private static void ConfigureProblemDetails(RkdProblemDetailsOptions options)

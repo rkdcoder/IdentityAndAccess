@@ -9,6 +9,8 @@ namespace IdentityAndAccess.Identity.Api.Extensions
             // Erros (problem details) e log HTTP são adicionados no início do pipeline pelo Rkd.Scalar.
             app.UseHttpsRedirection();
 
+            app.UseRateLimiter();
+
             app.UseAuthentication();
             app.UseAuthorization();
 

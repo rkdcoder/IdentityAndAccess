@@ -22,6 +22,7 @@ Este projeto utiliza pacotes desenvolvidos pelo próprio autor:
 | ----- | --- |
 | `Credentials` | `Username`/`Password` usados no Basic da API (`/api/v1/users`) e na proteção da UI do Scalar. |
 | `DirectoryServices` | `ContextOptions` e `TimeoutSeconds` (timeout de descoberta/consulta ao AD). |
+| `RateLimiting:AuthValidate` | Limite por IP de `POST /api/v1/auth/validate` (`PermitLimit` por `WindowSeconds`); excedido → `429` com `Retry-After`. Atrás de proxy/balanceador, habilite `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` para limitar pelo IP real do cliente. |
 | `ConnectionStrings:Logs` | Banco onde o log HTTP é gravado. |
 | `HttpLogging` | Opções do log HTTP (`MaxBodyBytes`, `ExcludedPaths`, `SensitivePaths`…) e `SqlServer` (`Table`, `CreateTable`). |
 
@@ -37,6 +38,7 @@ Os corpos de `POST /api/v1/auth/validate` (contém a senha) e de `GET /api/v1/us
 | -------- | -------- |
 | Dados inválidos | `400`, `code: VALIDATION_ERROR`, `errors` por campo |
 | Sem/errada credencial Basic | `401` |
+| Limite de tentativas por IP excedido | `429`, `code: TOO_MANY_REQUESTS` |
 | Credenciais de AD inválidas | `401` com `success: false` e a mensagem do motivo |
 | Nenhum controlador de domínio respondeu | `503`, `code: DIRECTORY_UNAVAILABLE` |
 | Erro inesperado | `500`, `code: ERRO_INESPERADO` (sem detalhes fora de Development) |
@@ -50,7 +52,7 @@ O objetivo principal deste código é disponibilizar um **endpoint de autentica�
 - Recebe credenciais (usuário, senha e domínio/AD);
 - Valida diretamente contra o **Active Directory**;
 - Retorna informações detalhadas do usuário quando autenticado;
-- Fornece respostas padronizadas com status apropriados (200, 400, 401, 503);
+- Fornece respostas padronizadas com status apropriados (200, 400, 401, 429, 503);
 - Mantém a aplicação escalável, modular e aderente a boas práticas de arquitetura moderna.
 
 ---

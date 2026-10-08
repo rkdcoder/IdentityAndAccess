@@ -52,7 +52,7 @@ namespace IdentityAndAccess.Identity.Infrastructure.Adapters.Out.ExternalClients
         {
             using var entry = new DirectoryEntry($"LDAP://{domain}");
 
-            var ticks = DirectoryEntryReader.ToInt64(entry.Properties["maxPwdAge"]?.Value);
+            var ticks = AdAttributeConverter.ToInt64(entry.Properties["maxPwdAge"]?.Value);
 
             if (ticks is null or 0 || ticks == long.MinValue)
                 return TimeSpan.Zero;
