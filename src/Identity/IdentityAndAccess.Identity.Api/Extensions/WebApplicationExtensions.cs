@@ -1,7 +1,3 @@
-﻿using HttpGossip;
-using Rkd.ApiException.Extensions;
-using Rkd.Scalar.Configuration;
-using Rkd.Scalar.Extensions;
 using Scalar.AspNetCore;
 
 namespace IdentityAndAccess.Identity.Api.Extensions
@@ -10,22 +6,19 @@ namespace IdentityAndAccess.Identity.Api.Extensions
     {
         public static WebApplication UseApi(this WebApplication app)
         {
-            app.UseRkdApiException();
-            app.UseRouting();
+            // Erros (problem details) e log HTTP são adicionados no início do pipeline pelo Rkd.Scalar.
+            app.UseHttpsRedirection();
+
             app.UseAuthentication();
             app.UseAuthorization();
-            app.UseHttpGossip();
 
             app.MapControllers();
 
-            app.UseRkdScalar(new RkdScalarConfiguration
+            app.UseRkdScalar(options =>
             {
-                Title = "Identity and Access Api",
-                ConfigureScalar = opt =>
-                {
-                    opt.DarkMode = true;
-                    opt.Theme = ScalarTheme.BluePlanet;
-                }
+                options.Title = "Identity and Access Api";
+                options.DarkMode = true;
+                options.ConfigureScalar = scalar => scalar.Theme = ScalarTheme.BluePlanet;
             });
 
             return app;
