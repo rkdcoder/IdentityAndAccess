@@ -1,20 +1,25 @@
 # Identity and Access API
 
-Este projeto implementa uma **API de autenticação e validação de credenciais** baseada em Active Directory, estruturada segundo os princípios de **DDD (Domain-Driven Design)**, **CQRS (Command Query Responsibility Segregation)** e **Arquitetura Hexagonal**.
+Este projeto implementa uma **API de autenticação e validação de credenciais** baseada em Active Directory, em um **único projeto ASP.NET Core** (`src/IdentityAndAccess.Api`), sem camadas separadas: os controllers chamam diretamente os serviços de Active Directory.
 
-## Arquitetura
+## Estrutura
 
-- **DDD (Domain-Driven Design)**: separação clara das camadas de **Domain**, **Application**, **Infrastructure** e **Api**, garantindo que a lógica de negócio (regras de domínio) permaneça isolada e independente de tecnologias externas.
-- **CQRS (Command Query Responsibility Segregation)**: uso de _commands_ e _queries_ distintos para operações de escrita e leitura, implementados com **Cqrsly**, garantindo clareza e melhor escalabilidade no fluxo da aplicação.
-- **Arquitetura Hexagonal (Ports & Adapters)**: aplicação organizada em **ports** (interfaces) e **adapters** (implementações), permitindo substituir facilmente dependências externas como Active Directory ou provedores de persistência.
+```
+src/IdentityAndAccess.Api
+├── Controllers/                  AuthController (POST /api/v1/auth/validate), UsersController (GET /api/v1/users)
+├── Models/                       Requests/responses e os modelos de usuário do AD (AdUser, AdUserDetails)
+├── Services/                     IActiveDirectoryAuthService / IActiveDirectoryUsersService e implementações
+│   └── ActiveDirectory/          Descoberta de controladores de domínio, política de senha e leitura de atributos
+├── Options/                      DirectoryServicesOptions, AuthRateLimitOptions
+├── Exceptions/                   DirectoryUnavailableException (vira 503)
+└── Program.cs                    Registro de serviços e pipeline
+```
 
 ## NuGets utilizados
 
-Este projeto utiliza pacotes desenvolvidos pelo próprio autor:
-
-- **Cqrsly**: responsável pelo _dispatcher_ CQRS, inspirado no MediatR, mas minimalista e de alta performance. Ele organiza o fluxo entre _commands_, _queries_ e _handlers_.
-- **Rkd.Scalar** (2.8.1): documentação interativa (Scalar), versionamento, autenticação Basic, erros padronizados no formato **RFC 9457** (`application/problem+json` com `code` e `traceId`) e **log HTTP** em fila assíncrona.
+- **Rkd.Scalar** (2.8.1): pacote do próprio autor — documentação interativa (Scalar), versionamento, autenticação Basic, erros padronizados no formato **RFC 9457** (`application/problem+json` com `code` e `traceId`) e **log HTTP** em fila assíncrona.
 - **Rkd.Scalar.HttpLogging.SqlServer**: destino SQL Server do log HTTP do Rkd.Scalar.
+- **System.DirectoryServices.AccountManagement**: acesso ao Active Directory.
 
 ## Configuração (`appsettings.json`)
 
